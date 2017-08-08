@@ -1,0 +1,1 @@
+Working repository of a python Structure from Motion application, based on pyOpenCV.
