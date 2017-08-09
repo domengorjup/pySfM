@@ -537,14 +537,14 @@ def get_camera_matrices(im1, im2, K, P1=None, d_max=1, alpha=0.995, **kwargs):
     # essential matrix (H&Z, p. 257)
     E = K.T.dot(F).dot(K)
     
-    U, D, V = np.linalg.svd(E)
+    U, D, VT = np.linalg.svd(E) # np.linalg.svd -> U, D, V.T
     W = np.array([[0, -1, 0],
                   [1, 0, 0],
                   [0, 0, 1]], dtype=float)
     
     u3 = U[:, -1]
-    R1 = U.dot(W).dot(V.T)
-    R2 = U.dot(W.T).dot(V.T)
+    R1 = U.dot(W).dot(VT)
+    R2 = U.dot(W.T).dot(VT)
     #positive determinants
     R1 = R1 * np.sign(np.linalg.det(R1))
     R2 = R2 * np.sign(np.linalg.det(R2)) 
