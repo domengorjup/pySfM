@@ -614,7 +614,8 @@ def in_front(X, Rt):
     R = Rt[:, :3]
     t = Rt[:, -1]
     C = np.dot(-R.T, t)
-    if np.dot(R[2], X[:3]) - C[2] > 0:
+
+    if np.dot(R[2], X[:3] - C) > 0:
         return True
     return False
 
