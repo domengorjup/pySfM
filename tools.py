@@ -193,7 +193,9 @@ class Scene:
             optimization_results = least_squares(cost_f, 
                                                  x0=x0, 
                                                  method='lm', 
-                                                 ftol=ftol, 
+                                                 ftol=ftol,
+                                                 xtol=1e-9,
+                                                 gtol=1e-12,
                                                  max_nfev=max_nfev,
                                                  verbose=0,
                                                  args=args)
@@ -362,14 +364,15 @@ def reprojection_error(x, visibility, points2D, N_frames, K, weight_cutoff=15, d
             #plt.show()
         
         diff = reprojected_points[:2] - image_points[:2]
-        dist = np.sqrt(np.sum(diff**2, axis=0))
+        # dist = np.sqrt(np.sum(diff**2, axis=0))
         
-        # Tukey weights (https://github.com/dfridovi/SimpleSFM)
-        weight_cutoff = np.mean(dist) + 2 * np.std(dist) # potrebno? 
-        weights = (1 - (dist / weight_cutoff) ** 2) ** 2
-        weights[dist > weight_cutoff] = 0
-        
-        residuals.append(np.tile(weights, 2) * diff.ravel())
+        # # Tukey weights (https://github.com/dfridovi/SimpleSFM)
+        # weight_cutoff = np.sort(dist, axis=0)[int(np.ceil(0.98*dist.shape[0]))]#np.mean(dist) + 5 * np.std(dist) # potrebno? 
+        # weights = (1 - (dist / weight_cutoff) ** 2) ** 2
+        # weights[dist > weight_cutoff] = 0
+
+        # residuals.append(np.tile(weights, 2) * diff.ravel())
+        residuals.append(diff.ravel())
 
     S = np.hstack(residuals)
     
@@ -418,14 +421,15 @@ def reprojection_error_X_only(x, Rt, visibility, points2D, N_frames, K, weight_c
             #plt.show()
         
         diff = reprojected_points[:2] - image_points[:2]
-        dist = np.sqrt(np.sum(diff**2, axis=0))
+        # dist = np.sqrt(np.sum(diff**2, axis=0))
+
+        # # Tukey weights (https://github.com/dfridovi/SimpleSFM)
+        # weight_cutoff = np.mean(dist) + 5 * np.std(dist) # potrebno? 
+        # weights = (1 - (dist / weight_cutoff) ** 2) ** 2
+        # weights[dist > weight_cutoff] = 0
         
-        # Tukey weights (https://github.com/dfridovi/SimpleSFM)
-        weight_cutoff = np.mean(dist) + 2 * np.std(dist) # potrebno? 
-        weights = (1 - (dist / weight_cutoff) ** 2) ** 2
-        weights[dist > weight_cutoff] = 0
-        
-        residuals.append(np.tile(weights, 2) * diff.ravel())
+        #residuals.append(np.tile(weights, 2) * diff.ravel())
+        residuals.append(diff.ravel())
     
     S = np.hstack(residuals)
 

@@ -49,10 +49,18 @@ class MainWindow(QtWidgets.QWidget):
 
 
     def open_file(self):
-        file = QtGui.QFileDialog.getOpenFileName(self, 'Select the point cloud .pkl file.', self.dir_path, filter=("pkl (*.pkl)"))[0]
-        self.scene = pickle.load(open(file, 'rb'))
-        self.load_frames()
-        self.removeOutliers.setEnabled(True)
+        try:
+            file = QtGui.QFileDialog.getOpenFileName(self, 'Select the point cloud .pkl file.', self.dir_path, filter=("pkl (*.pkl)"))[0]
+            self.scene = pickle.load(open(file, 'rb'))
+            self.load_frames()
+            self.removeOutliers.setEnabled(True)
+        except Exception as e:
+            if isinstance(e, FileNotFoundError):
+                pass
+            else:
+                QtGui.QMessageBox.warning(self, "Error opening file",
+                        'An error occurred while opening file.\n(Details: "{:s}")'.format(str(e)),
+                        QtGui.QMessageBox.Ok)
 
 
     def load_frames(self):
