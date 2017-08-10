@@ -45,58 +45,64 @@ class Scene:
             # if there are no matches, add a new point
             else:
                 self.points3D[key] = p
-        
-    def render(self, N_points=0, cameras=False, openGL=False):
+    
+    def get_3d_points(self):
+        """ Return X, Y, Z coordinated of triangulated points. """
+        XYZ = np.array([ from_homogenous(point3D.X) for key, point3D in self.points3D.items() ])
+        return XYZ.T
+
+    def render(self, N_points=0, cameras=False, openGL=False, show=True):
         """ Draw the scene (point cloud and camera positions). """
         XYZ = np.array([ from_homogenous(point3D.X) for key, point3D in self.points3D.items() ])
-        X, Y, Z = np.array(XYZ).T
+        X, Y, Z = XYZ.T
         Xc, Yc, Zc = np.array([pos_from_P(P)[:-1, -1] for P in self.cameras]).T 
         
-        if openGL:
-            if cameras:
-                pg_render(XYZ, np.column_stack((Xc, Yc, Zc)))
+        if show:
+            if openGL:
+                if cameras:
+                    pg_render(XYZ, np.column_stack((Xc, Yc, Zc)))
+                else:
+                    pg_render(XYZ)
+                
             else:
-                pg_render(XYZ)
-            
-        else:
-            if N_points != 0:
-                increment = len(X) // N_points
-            else:
-                increment = 1
-                N_points = len(X)
+                if N_points != 0:
+                    increment = len(X) // N_points
+                else:
+                    increment = 1
+                    N_points = len(X)
 
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            ax.scatter(X[::increment], Y[::increment], Z[::increment], 
-                       depthshade=False, s=0.1, c='k', antialiased=False)
-            ax.set_title('3D point cloud')
-            ax.set_xlabel('x')
-            ax.set_ylabel('y')
-            ax.set_zlabel('z')
+                fig = plt.figure()
+                ax = fig.add_subplot(111, projection='3d')
+                ax.scatter(X[::increment], Y[::increment], Z[::increment], 
+                        depthshade=False, s=0.1, c='k', antialiased=False)
+                ax.set_title('3D point cloud')
+                ax.set_xlabel('x')
+                ax.set_ylabel('y')
+                ax.set_zlabel('z')
 
-            # plot camera positions
-            if cameras:     
-                colors = ['C2'] + ['C0'] * (len(Xc) - 1)
-                ax.scatter(Xc, Yc, Zc, c=colors, depthshade=False, 
-                           antialiased=False, label='camera positions')
-                ax.legend()
-            
-                Xa = np.hstack([X, Xc])
-                Ya = np.hstack([Y, Yc])
-                Za = np.hstack([Z, Zc])
-            else:
-                Xa, Ya, Za = X, Y, Z
-            
-            # equal axis aspect ratio bounding box
-            max_range = np.array([Xa.max()-Xa.min(), Ya.max()-Ya.min(), Za.max()-Za.min()]).max()
-            Xb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][0].flatten() + 0.5*(Xa.max()+Xa.min())
-            Yb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][1].flatten() + 0.5*(Ya.max()+Ya.min())
-            Zb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][2].flatten() + 0.5*(Za.max()+Za.min())
-            for xb, yb, zb in zip(Xb, Yb, Zb):
-                ax.plot([xb], [yb], [zb], 'w')
-            
-            plt.show()                       
-            print('{:d} identified points ({:d} shown).'.format(len(X), N_points))
+                # plot camera positions
+                if cameras:     
+                    colors = ['C2'] + ['C0'] * (len(Xc) - 1)
+                    ax.scatter(Xc, Yc, Zc, c=colors, depthshade=False, 
+                            antialiased=False, label='camera positions')
+                    ax.legend()
+                
+                    Xa = np.hstack([X, Xc])
+                    Ya = np.hstack([Y, Yc])
+                    Za = np.hstack([Z, Zc])
+                else:
+                    Xa, Ya, Za = X, Y, Z
+                
+                # equal axis aspect ratio bounding box
+                max_range = np.array([Xa.max()-Xa.min(), Ya.max()-Ya.min(), Za.max()-Za.min()]).max()
+                Xb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][0].flatten() + 0.5*(Xa.max()+Xa.min())
+                Yb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][1].flatten() + 0.5*(Ya.max()+Ya.min())
+                Zb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][2].flatten() + 0.5*(Za.max()+Za.min())
+                for xb, yb, zb in zip(Xb, Yb, Zb):
+                    ax.plot([xb], [yb], [zb], 'w')
+                
+                plt.show()                       
+                print('{:d} identified points ({:d} shown).'.format(len(X), N_points))
        
         return X, Y, Z
                 
