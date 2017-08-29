@@ -51,11 +51,12 @@ class Scene:
         XYZ = np.array([ from_homogenous(point3D.X) for key, point3D in self.points3D.items() ])
         return XYZ.T
 
-    def render(self, N_points=0, cameras=False, openGL=False, show=True):
+    def render(self, N_points=0, cameras=False, openGL=False, show=True, q_length=1):
         """ Draw the scene (point cloud and camera positions). """
         XYZ = np.array([ from_homogenous(point3D.X) for key, point3D in self.points3D.items() ])
         X, Y, Z = XYZ.T
-        Xc, Yc, Zc = np.array([pos_from_P(P)[:-1, -1] for P in self.cameras]).T 
+        Xc, Yc, Zc = np.array([pos_from_P(P)[:-1, -1] for P in self.cameras]).T
+        Xd, Yd, Zd = np.array([Rt[2, :-1] for Rt in self.cameras]).T
         
         if show:
             if openGL:
@@ -81,10 +82,17 @@ class Scene:
                 ax.set_zlabel('z')
 
                 # plot camera positions
-                if cameras:     
-                    colors = ['C2'] + ['C0'] * (len(Xc) - 1)
-                    ax.scatter(Xc, Yc, Zc, c=colors, depthshade=False, 
+                if cameras:
+                    N_cams = len(Xc)
+                    R = np.linspace(0, 1., N_cams)
+                    G = np.linspace(0.5, 1., N_cams)
+                    B = R[::-1]
+                    c_colors = np.column_stack((R, G, B))
+
+                    ax.scatter(Xc, Yc, Zc, c=c_colors, depthshade=False, 
                             antialiased=False, label='camera positions')
+                    ax.quiver(Xc, Yc, Zc, Xd, Yd, Zd, color='C3', length=q_length, 
+                            normalize=True, pivot='middle', label='camera $z$ orientation')
                     ax.legend()
                 
                     Xa = np.hstack([X, Xc])
