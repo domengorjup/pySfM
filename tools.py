@@ -518,7 +518,8 @@ def match_features(im1, im2, scale, match_ratio, mode='ORB'):
 
 def get_fundamental_matrix(p1, p2, K, d_max=1, alpha=0.995):
     """
-    Given corresponding point pairs, calculate the fundamental matrix using RANSAC.
+    Given corresponding point pairs, calculate the fundamental matrix using
+    RANSAC combined with the 8-poitn algorithm for normalized point coordiantes.
     """    
     F, mask = cv2.findFundamentalMat(p1, p2, cv2.FM_RANSAC, d_max, alpha)
     
@@ -556,6 +557,7 @@ def get_camera_matrices(im1, im2, K, P1=None, d_max=1, alpha=0.995, **kwargs):
     E = K.T.dot(F).dot(K)
     
     U, D, VT = np.linalg.svd(E) # np.linalg.svd -> U, D, V.T
+
     W = np.array([[0, -1, 0],
                   [1, 0, 0],
                   [0, 0, 1]], dtype=float)
@@ -604,7 +606,7 @@ def get_camera_matrices_PnP(im1, im2, K, P1, scene, frame_i, distCoeffs, d_max=1
             matching_p2.append(p2[i])
             matching_X.append(from_homogenous(scene.points3D[key].X))
 
-    if len(matching_X) < 50:
+    if len(matching_X) < 10:
         P1, P2, p1, p2 = get_camera_matrices(im1, im2, K, P1, d_max=d_max, alpha=alpha, **kwargs)
         print('Too few ({:d}) matches for PnPRANSAC, calculating Fundamental matrix.'.format(len(matching_X)))
     else:
@@ -619,6 +621,7 @@ def get_camera_matrices_PnP(im1, im2, K, P1, scene, frame_i, distCoeffs, d_max=1
 
         R2, jac = cv2.Rodrigues(rvec)
         R2 = R2 * np.sign(np.linalg.det(R2))
+        
         P2 = np.column_stack((R2, tvec))
 
     return P1, P2, p1, p2
