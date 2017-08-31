@@ -55,7 +55,7 @@ class Scene:
         """ Draw the scene (point cloud and camera positions). """
         XYZ = np.array([ from_homogenous(point3D.X) for key, point3D in self.points3D.items() ])
         X, Y, Z = XYZ.T
-        Xc, Yc, Zc = np.array([pos_from_P(P)[:-1, -1] for P in self.cameras]).T
+        Xc, Yc, Zc = np.array([pos_from_Rt(Rt) for Rt in self.cameras]).T
         Xd, Yd, Zd = np.array([Rt[2, :-1] for Rt in self.cameras]).T
         
         if show:
@@ -240,7 +240,7 @@ class Scene:
         X = x.reshape(-1, 3)
 
         X_ = np.vstack((X.T, np.ones(X.shape[0])))
-        XYZc = np.array([pos_from_P(P)[:-1, -1] for P in self.cameras])
+        XYZc = np.array([pos_from_Rt(Rt) for Rt in self.cameras])
 
         frames = {}
         for i in range(N_frames):
@@ -264,7 +264,7 @@ class Scene:
                 # offset frame indices for frames not yet in scene
                 X.append(from_homogenous(point.X))
             XYZ = np.vstack(X).T
-            XYZc = np.array([pos_from_P(P)[:-1, -1] for P in self.cameras]).T 
+            XYZc = np.array([pos_from_Rt(Rt) for Rt in self.cameras]).T 
             pickle.dump({'points': XYZ, 'cameras': XYZc}, open(filename, 'wb'))
 
         elif mode == 'scene':
@@ -640,13 +640,14 @@ def in_front(X, Rt):
         return True
     return False
 
-def pos_from_P(P):
-    """ Convert a camera projection matrix to its pose. """
-    R = P[:, :-1]
-    t = P[:, -1] 
-    pos = np.eye(4)
-    pos[:-1, :-1] = R.T
-    pos[:-1, -1] = np.dot(np.linalg.inv(R), -t)
+def pos_from_Rt(Rt):
+    """ Convert a camera [R|t] projection matrix to its pose. """
+    R = Rt[:, :-1]
+    t = Rt[:, -1] 
+    #pos = np.eye(4)
+    #pos[:-1, :-1] = R.T
+    #pos[:-1, -1] = np.dot(R.T, -t)
+    pos = np.dot(R.T, -t)
     return pos
 
 # Reading the Middlebury dataset
