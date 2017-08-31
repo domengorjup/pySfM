@@ -245,7 +245,8 @@ class Scene:
         frames = {}
         for i in range(N_frames):
             P = self.K.dot(self.cameras[i])
-            reprojected_points = np.dot(P, X_[:, visibility[i]])[:2].T
+            reprojected_points_h = np.dot(P, X_[:, visibility[i]])
+            reprojected_poit = np.transpose(reprojected_points_h[:2] / reprojected_points_h[2])
             frames[i] = {'3D': X[visibility[i]],
                          '2D': points2D[i][visibility[i]][:, :2],
                          're': reprojected_points,
@@ -359,7 +360,8 @@ def reprojection_error(x, visibility, points2D, N_frames, K, weight_cutoff=15, d
     residuals = []
     for i, P in enumerate(cameras):
         reprojected_points = np.dot(P, X[:, visibility[i]])
-        image_points = points2D[i, visibility[i]].T
+        reprojected_points = reprojected_points[:2] / reprojected_points[2]
+        image_points = points2D[i, visibility[i]].T[:2]
 
         #debugging
         if debug:
@@ -377,7 +379,8 @@ def reprojection_error(x, visibility, points2D, N_frames, K, weight_cutoff=15, d
             ax[i].legend(loc=3)
             #plt.show()
         
-        diff = reprojected_points[:2] - image_points[:2]
+        diff = reprojected_points - image_points
+
         # dist = np.sqrt(np.sum(diff**2, axis=0))
         
         # # Tukey weights (https://github.com/dfridovi/SimpleSFM)
@@ -416,7 +419,8 @@ def reprojection_error_X_only(x, Rt, visibility, points2D, N_frames, K, weight_c
     residuals = []
     for i, P in enumerate(cameras):
         reprojected_points = np.dot(P, X[:, visibility[i]])
-        image_points = points2D[i, visibility[i]].T
+        reprojected_points = reprojected_points[:2] / reprojected_points[2]
+        image_points = points2D[i, visibility[i]].T[:2]
 
         #debugging
         if debug:
@@ -434,7 +438,7 @@ def reprojection_error_X_only(x, Rt, visibility, points2D, N_frames, K, weight_c
             ax[i].legend(loc=3)
             #plt.show()
         
-        diff = reprojected_points[:2] - image_points[:2]
+        diff = reprojected_points - image_points
         # dist = np.sqrt(np.sum(diff**2, axis=0))
 
         # # Tukey weights (https://github.com/dfridovi/SimpleSFM)
