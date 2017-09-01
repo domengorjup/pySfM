@@ -151,7 +151,10 @@ class Scene:
     def unpack(self, x, X_only=False, remove_outliers=True, max_sd_dist=2):
         """ Unpack bundle adjustment results to update the scene. """
 
-        if not X_only:
+        if X_only:
+            new_X = x.reshape(-1, 3)
+        
+        else:
             # construct [R|t] matrices
             n_camera_params = 6*self.N_frames
             camera_parameters = x[:n_camera_params].reshape(-1,6)
@@ -164,9 +167,6 @@ class Scene:
             self.cameras = cameras
 
             new_X = x[n_camera_params:].reshape(-1, 3)
-
-        else:
-            new_X = x.reshape(-1, 3)
             
         # update point3D objects        
         if remove_outliers:
@@ -359,8 +359,8 @@ def reprojection_error(x, visibility, points2D, N_frames, K, weight_cutoff=15, d
     # reprojection error
     residuals = []
     for i, P in enumerate(cameras):
-        reprojected_points = np.dot(P, X[:, visibility[i]])
-        reprojected_points = reprojected_points[:2] / reprojected_points[2]
+        reprojected_points_h = np.dot(P, X[:, visibility[i]])
+        reprojected_points = reprojected_points_h[:2] / reprojected_points_h[2]
         image_points = points2D[i, visibility[i]].T[:2]
 
         #debugging
@@ -418,8 +418,8 @@ def reprojection_error_X_only(x, Rt, visibility, points2D, N_frames, K, weight_c
     # reprojection error
     residuals = []
     for i, P in enumerate(cameras):
-        reprojected_points = np.dot(P, X[:, visibility[i]])
-        reprojected_points = reprojected_points[:2] / reprojected_points[2]
+        reprojected_points_h = np.dot(P, X[:, visibility[i]])
+        reprojected_points = reprojected_points_h[:2] / reprojected_points_h[2]
         image_points = points2D[i, visibility[i]].T[:2]
 
         #debugging
