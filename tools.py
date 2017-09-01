@@ -246,7 +246,7 @@ class Scene:
         for i in range(N_frames):
             P = self.K.dot(self.cameras[i])
             reprojected_points_h = np.dot(P, X_[:, visibility[i]])
-            reprojected_poit = np.transpose(reprojected_points_h[:2] / reprojected_points_h[2])
+            reprojected_points = np.transpose(reprojected_points_h[:2] / reprojected_points_h[2])
             frames[i] = {'3D': X[visibility[i]],
                          '2D': points2D[i][visibility[i]][:, :2],
                          're': reprojected_points,
