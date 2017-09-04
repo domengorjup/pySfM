@@ -313,7 +313,7 @@ def from_homogenous(xh):
 
 def triangulate_lsq(x1, x2, P1, P2):
     """
-    Triangulate the 3D point by solving 
+    Triangulate 3D points by solving 
         x = PX
     in a least-squares sense.
     """
@@ -639,7 +639,7 @@ def in_front(X, Rt):
     R = Rt[:, :3]
     t = Rt[:, -1]
     C = np.dot(-R.T, t)
-
+    
     if np.dot(R[2], X[:3] - C) > 0:
         return True
     return False

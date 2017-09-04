@@ -131,9 +131,8 @@ class MainWindow(QtWidgets.QWidget):
 
     def init_cloud(self):
         w = gl.GLViewWidget(self)
-        w.opts['distance'] = 1
+        w.opts['pos'] = 1
         gx = gl.GLGridItem()
-        w.addItem(gx)
         self.cloudPlot = gl.GLScatterPlotItem(pos=np.zeros(3), color=np.zeros((1, 3)), size=1, pxMode=True)
         self.camPlot = gl.GLScatterPlotItem(pos=np.zeros(3), color=np.array([0, 0, 0]), size=1, pxMode=True)
         w.addItem(self.cloudPlot)
