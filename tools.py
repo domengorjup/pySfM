@@ -633,14 +633,28 @@ def get_camera_matrices(im1, im2, K, P1=None, d_max=1, alpha=0.995, **kwargs):
     
     # test points to determine if projections are in front of both cameras
     tally = np.zeros(4)
-    for x1, x2 in zip(p1, p2):
-        for i, P2 in enumerate(P2_list):
-            X = triangulate_lsq(to_homogenous(x1), to_homogenous(x2), P1, P2)
+    for i, P2 in enumerate(P2_list):
+        for x1, x2 in zip(p1[:10], p2[:10]):
+            X = triangulate_lm(to_homogenous(x1), to_homogenous(x2), P1, P2, K)
             if in_front(X, P2) and in_front(X, P1):
                 tally[i] += 1
     P2 = P2_list[np.argmax(tally)]
     
-    return P1, P2, p1, p2
+    p1_h = np.column_stack((p1, np.ones(p1.shape[0])))
+    p2_h = np.column_stack((p2, np.ones(p2.shape[0])))
+    
+    x0 = np.hstack((cv2.Rodrigues(P2[:, :3])[0][:,0], P2[:, 3]))
+    args = (p1_h, p2_h, K)
+    res = least_squares(first_camera_reprojection_error, x0=x0, method='lm', 
+                        ftol=1e-9, xtol=1e-9, max_nfev=100, verbose=0, args=args)
+    
+    rvec_tvec = res.x
+    rvec = rvec_tvec[:3]
+    tvec = rvec_tvec[3:]
+    R_new = cv2.Rodrigues(rvec)[0]
+    P2_new = np.column_stack((R_new, tvec))
+    
+    return P1, P2_new / P2_new[-1, -1], p1, p2
 
 
 def first_camera_reprojection_error(par, p1, p2, K, P1=None):
@@ -654,15 +668,15 @@ def first_camera_reprojection_error(par, p1, p2, K, P1=None):
     if P1 is None:
         P1 = np.column_stack((np.eye(3), np.zeros(3)))
     
-    X = np.column_stack([triangulate_lm(x1, x2, P1, P2) for x1, x2 in zip(p1[:50], p2[:50])])
+    X = np.column_stack([triangulate_lm(x1, x2, P1, P2) for x1, x2 in zip(p1[:100], p2[:100])]) # pazi, samo 100 točk!
     reprojected_x_h = np.dot(P2, X)
     reprojected_x = reprojected_x_h[:2] / reprojected_x_h[2]
-    image_points = p2.T[:2, :50]
+    image_points = p2.T[:2, :100]
     diff = reprojected_x - image_points
     return diff.ravel()
 
 
-def get_camera_matrices_PnP(im1, im2, K, P1, scene, frame_i, distCoeffs, d_max=1, alpha=0.995, **kwargs):
+def get_camera_matrices_PnP(im1, im2, K, P1, scene, frame_i, distCoeffs, RANSAC=True, d_max=1, alpha=0.995, **kwargs):
     """
     Given a pair of images and known 3D points, calculate P2 using PnPRANSAC.
     P = [R|t] ... normalized camera matrix; P1 = [I|0] (H&Z, p. 257)
@@ -684,18 +698,22 @@ def get_camera_matrices_PnP(im1, im2, K, P1, scene, frame_i, distCoeffs, d_max=1
         P1, P2, p1, p2 = get_camera_matrices(im1, im2, K, P1, d_max=d_max, alpha=alpha, **kwargs)
         print('Too few ({:d}) matches for PnPRANSAC, calculating Fundamental matrix.'.format(len(matching_X)))
     else:
-        print('PnPRANSAC ', len(matching_X))
-        retval, rvec, tvec, inliers = cv2.solvePnPRansac(np.array(matching_X), 
-                                                 np.array(matching_p2), 
-                                                 cameraMatrix=K,
-                                                 distCoeffs=distCoeffs)
+        if RANSAC:
+            print('PnPRANSAC ', len(matching_X))
+            retval, rvec, tvec, inliers = cv2.solvePnPRansac(np.array(matching_X), 
+                                                    np.array(matching_p2), 
+                                                    cameraMatrix=K,
+                                                    distCoeffs=distCoeffs)
+        else:
+            retval, rvec, tvec = cv2.solvePnP(np.array(matching_X), 
+                                              np.array(matching_p2), 
+                                              cameraMatrix=K,
+                                              distCoeffs=distCoeffs)            
 
         # outlier rejection through RANSAC
         F, p1, p2 = get_fundamental_matrix(p1, p2, K, d_max=d_max, alpha=alpha)
 
-        R2, jac = cv2.Rodrigues(rvec)
-        R2 = R2 * np.sign(np.linalg.det(R2))
-        
+        R2 = cv2.Rodrigues(rvec)[0]     
         P2 = np.column_stack((R2, tvec))
 
     return P1, P2, p1, p2
