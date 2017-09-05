@@ -311,16 +311,65 @@ def from_homogenous(xh):
     """ Convert a point from homogenous coordiantes. """
     return xh[:-1] / xh[-1]
 
-def triangulate_lsq(x1, x2, P1, P2):
+def triangulate_lsq(x1, x2, P1, P2, K=None):
     """
-    Triangulate 3D points by solving 
+    Triangulate a 3D point by solving 
         x = PX
-    in a least-squares sense.
+    in a least-squares sense. If intrinsic matrix K is given, assume normalized coordinates.
+
+    Parameters:
+    -----------
+    x1 : array_like with shape (n, 3) of n points in first image in homogenous coordinates.
+    x2 : array_like with shape (n, 3) of n points in second image in homogenous coordinates.
+    P1 : array_like, (3, 4), first camera matrix. Normalized coordinates assumed if K given.
+    P2 : array_like, (3, 4), second camera matrix. Normalized coordinates assumed if K given.
+    K : array_like, (3, 3), camera intrinsic parameters. Defaults to identity.
     """
+    if K is not None:
+        P1 = K.dot(P1)
+        P2 = K.dot(P2) 
+
     A = np.vstack((P1, P2))
     b = np.hstack([x1, x2]).T
     X = np.linalg.lstsq(A, b)[0]
     return X / X[-1]
+
+def triangulate_lm(x1, x2, P1, P2, K=None):
+    """
+    3D point triangulation using Levenberg–Marquardt minimization of reprojection error.
+    If intrinsic matrix K is given, assume normalized coordinates.
+
+    Parameters:
+    -----------
+    x1 : array_like with shape (3,) point in first image in homogenous coordinates.
+    x2 : array_like with shape (3,) point in second image in homogenous coordinates.
+    P1 : array_like, (3, 4), first camera matrix. Normalized coordinates assumed if K given.
+    P2 : array_like, (3, 4), second camera matrix. Normalized coordinates assumed if K given.
+    K : array_like, (3, 3), camera intrinsic parameters. Defaults to identity.
+    """
+    if K is not None:
+        P1 = K.dot(P1)
+        P2 = K.dot(P2)
+
+    x0 = triangulate_lsq(x1, x2, P1, P2)
+    args = (x1[:2], x2[:2], P1, P2)
+    res = least_squares(triangulation_error, x0=x0, args=args, ftol=1e-7, xtol=1e-7, gtol=1e-7,
+                        method='lm', max_nfev=100, verbose=0)
+    X = res.x
+    return X
+
+def triangulation_error(X, x1, x2, P1, P2):
+    """
+    Computes the vector of residuals in 3D point triangulation.
+    To be passed to optimize.least_squares function.
+    """
+    x1_reprojected = from_homogenous(P1.dot(X))
+    x2_reprojected = from_homogenous(P2.dot(X))
+
+    diff_1 = x1 - x1_reprojected
+    diff_2 = x2 - x2_reprojected
+    
+    return np.hstack((diff_1, diff_2))
 
 def cross_matrix(a):
     """ The cross-product matrix of a length 3 vector a (H&Z, p.581). """
@@ -540,6 +589,7 @@ def get_fundamental_matrix(p1, p2, K, d_max=1, alpha=0.995):
     p1_ = np.dot(inv_K, p1_)[:2].T
     p2_ = np.dot(inv_K, p2_)[:2].T
     F, mask = cv2.findFundamentalMat(p1_, p2_, cv2.FM_8POINT)
+
     return np.dot(inv_K.T, F).dot(inv_K), p1, p2
 
 def get_camera_matrices(im1, im2, K, P1=None, d_max=1, alpha=0.995, **kwargs):
@@ -591,6 +641,26 @@ def get_camera_matrices(im1, im2, K, P1=None, d_max=1, alpha=0.995, **kwargs):
     P2 = P2_list[np.argmax(tally)]
     
     return P1, P2, p1, p2
+
+
+def first_camera_reprojection_error(par, p1, p2, K, P1=None):
+    """ Function ofresiduals for reprojection error minimization when reconstructiong first camera pose. """
+    rvec = par[:3]
+    tvec = par[3:]
+    R = cv2.Rodrigues(rvec)[0]
+    Rt = np.column_stack((R, tvec))
+    P2 = K.dot(Rt)
+
+    if P1 is None:
+        P1 = np.column_stack((np.eye(3), np.zeros(3)))
+    
+    X = np.column_stack([triangulate_lm(x1, x2, P1, P2) for x1, x2 in zip(p1[:50], p2[:50])])
+    reprojected_x_h = np.dot(P2, X)
+    reprojected_x = reprojected_x_h[:2] / reprojected_x_h[2]
+    image_points = p2.T[:2, :50]
+    diff = reprojected_x - image_points
+    return diff.ravel()
+
 
 def get_camera_matrices_PnP(im1, im2, K, P1, scene, frame_i, distCoeffs, d_max=1, alpha=0.995, **kwargs):
     """
