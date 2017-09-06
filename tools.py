@@ -592,7 +592,7 @@ def get_fundamental_matrix(p1, p2, K, d_max=1, alpha=0.995):
 
     return np.dot(inv_K.T, F).dot(inv_K), p1, p2
 
-def get_camera_matrices(im1, im2, K, P1=None, d_max=1, alpha=0.995, **kwargs):
+def get_camera_matrices(im1, im2, K, P1=None, optimize=True, d_max=1, alpha=0.995, **kwargs):
     """
     Given two images, calculate point matches and camera matrices.
     P = [R|t] ... normalized camera matrix; P1 = [I|0] (H&Z, p. 257)
@@ -643,18 +643,20 @@ def get_camera_matrices(im1, im2, K, P1=None, d_max=1, alpha=0.995, **kwargs):
     p1_h = np.column_stack((p1, np.ones(p1.shape[0])))
     p2_h = np.column_stack((p2, np.ones(p2.shape[0])))
     
-    x0 = np.hstack((cv2.Rodrigues(P2[:, :3])[0][:,0], P2[:, 3]))
-    args = (p1_h, p2_h, K)
-    res = least_squares(first_camera_reprojection_error, x0=x0, method='lm', 
-                        ftol=1e-9, xtol=1e-9, max_nfev=100, verbose=0, args=args)
+    if optimize:
+        x0 = np.hstack((cv2.Rodrigues(P2[:, :3])[0][:,0], P2[:, 3]))
+        args = (p1_h, p2_h, K)
+        res = least_squares(first_camera_reprojection_error, x0=x0, method='lm', 
+                            ftol=1e-9, xtol=1e-9, max_nfev=100, verbose=0, args=args)
+        
+        rvec_tvec = res.x
+        rvec = rvec_tvec[:3]
+        tvec = rvec_tvec[3:]
+        R_new = cv2.Rodrigues(rvec)[0]
+        P2 = np.column_stack((R_new, tvec))
     
-    rvec_tvec = res.x
-    rvec = rvec_tvec[:3]
-    tvec = rvec_tvec[3:]
-    R_new = cv2.Rodrigues(rvec)[0]
-    P2_new = np.column_stack((R_new, tvec))
-    
-    return P1, P2_new / P2_new[-1, -1], p1, p2
+    #return P1, P2 / P2[-1, -1], p1, p2
+    return P1, P2, p1, p2
 
 
 def first_camera_reprojection_error(par, p1, p2, K, P1=None):
