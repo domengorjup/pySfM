@@ -189,13 +189,17 @@ class Scene:
                         
     def bundle_adjustment(self, ftol=1e-6, max_nfev=5000, remove_outliers=True, max_sd_dist=2, weight_cutoff=5, X_only=False):
         """ Perform bundle adjustment to optimize cameras and points in the scene. """
+        camera_params_weight = 1e-12 # scale of camera extrinsic matrix parameters for optimization
+
         packed = self.pack(X_only=X_only)
         x0 = packed[0]
         args = packed[1:] + (weight_cutoff,)
         if X_only:
             cost_f = reprojection_error_X_only
+            x_scale = np.ones_like(x0, dtype=float)
         else:
             cost_f = reprojection_error
+            x_scale = np.hstack((1e-9*np.ones(6*self.N_frames), np.ones(len(x0) - 6*self.N_frames)))
 
         if self.debug:  
             print('--- BUNDLE ADJUSTMENT ---')
@@ -209,7 +213,8 @@ class Scene:
                                                  method='lm', 
                                                  ftol=ftol,
                                                  xtol=1e-9,
-                                                 gtol=1e-12,
+                                                 gtol=1e-13,
+                                                 x_scale=x_scale,
                                                  max_nfev=max_nfev,
                                                  verbose=0,
                                                  args=args)
@@ -428,16 +433,16 @@ def reprojection_error(x, visibility, points2D, N_frames, K, weight_cutoff=5, de
             ax[i].legend(loc=3)
             #plt.show()
         
-        diff = reprojected_points - image_points
+        # diff = reprojected_points - image_points
 
-        dist = np.sqrt(np.sum(diff**2, axis=0))
+        # dist = np.sqrt(np.sum(diff**2, axis=0))
         
-        # Tukey weights (https://github.com/dfridovi/SimpleSFM)
-        weights = (1 - (dist / weight_cutoff) ** 2) ** 2
-        weights[dist > weight_cutoff] = 0
+        # # Tukey weights (https://github.com/dfridovi/SimpleSFM)
+        # weights = (1 - (dist / weight_cutoff) ** 2) ** 2
+        # weights[dist > weight_cutoff] = 0
 
-        residuals.append(np.tile(weights, 2) * diff.ravel())
-        # residuals.append(diff.ravel())
+        # residuals.append(np.tile(weights, 2) * diff.ravel())
+        residuals.append(diff.ravel())
 
     S = np.hstack(residuals)
     
@@ -487,15 +492,14 @@ def reprojection_error_X_only(x, Rt, visibility, points2D, N_frames, K, weight_c
             #plt.show()
         
         diff = reprojected_points - image_points
-        # dist = np.sqrt(np.sum(diff**2, axis=0))
+        dist = np.sqrt(np.sum(diff**2, axis=0))
 
-        # # Tukey weights (https://github.com/dfridovi/SimpleSFM)
-        # weight_cutoff = np.mean(dist) + 5 * np.std(dist) # potrebno? 
-        # weights = (1 - (dist / weight_cutoff) ** 2) ** 2
-        # weights[dist > weight_cutoff] = 0
+        # Tukey weights (https://github.com/dfridovi/SimpleSFM)
+        weights = (1 - (dist / weight_cutoff) ** 2) ** 2
+        weights[dist > weight_cutoff] = 0
         
-        #residuals.append(np.tile(weights, 2) * diff.ravel())
-        residuals.append(diff.ravel())
+        residuals.append(np.tile(weights, 2) * diff.ravel())
+        #residuals.append(diff.ravel())
     
     S = np.hstack(residuals)
 
@@ -633,7 +637,7 @@ def get_camera_matrices(im1, im2, K, P1=None, optimize=True, d_max=1, alpha=0.99
     # test points to determine if projections are in front of both cameras
     tally = np.zeros(4)
     for i, P2 in enumerate(P2_list):
-        for x1, x2 in zip(p1[:10], p2[:10]):
+        for x1, x2 in zip(p1[:100], p2[:100]):
             X = triangulate_lm(to_homogenous(x1), to_homogenous(x2), P1, P2, K)
             if in_front(X, P2) and in_front(X, P1):
                 tally[i] += 1
