@@ -144,9 +144,9 @@ class Scene:
         self.key_order = key_order
 
         if X_only:
-            return points, self.cameras, visibility, points2D, self.N_frames
+            return points, self.cameras, visibility, points2D, self.N_frames, self.K
         
-        return x, visibility, points2D, self.N_frames
+        return x, visibility, points2D, self.N_frames, self.K
     
     def unpack(self, x, X_only=False, remove_outliers=True, max_sd_dist=2):
         """ Unpack bundle adjustment results to update the scene. """
@@ -187,11 +187,11 @@ class Scene:
             else:
                 self.points3D[key].X = to_homogenous(X_)
                         
-    def bundle_adjustment(self, ftol=1e-6, max_nfev=5000, remove_outliers=True, max_sd_dist=2, X_only=False):
+    def bundle_adjustment(self, ftol=1e-6, max_nfev=5000, remove_outliers=True, max_sd_dist=2, weight_cutoff=5, X_only=False):
         """ Perform bundle adjustment to optimize cameras and points in the scene. """
         packed = self.pack(X_only=X_only)
         x0 = packed[0]
-        args = packed[1:] + (self.K, 150)
+        args = packed[1:] + (weight_cutoff,)
         if X_only:
             cost_f = reprojection_error_X_only
         else:
@@ -236,7 +236,7 @@ class Scene:
 
     def build_frames(self):
         """ Build a dictionary of frames and corresponding points in the scene. """
-        x, cams, visibility, points2D, N_frames = self.pack(X_only=True)
+        x, cams, visibility, points2D, N_frames, K = self.pack(X_only=True)
         X = x.reshape(-1, 3)
 
         X_ = np.vstack((X.T, np.ones(X.shape[0])))
@@ -244,7 +244,7 @@ class Scene:
 
         frames = {}
         for i in range(N_frames):
-            P = self.K.dot(self.cameras[i])
+            P = K.dot(self.cameras[i])
             reprojected_points_h = np.dot(P, X_[:, visibility[i]])
             reprojected_points = np.transpose(reprojected_points_h[:2] / reprojected_points_h[2])
             frames[i] = {'3D': X[visibility[i]],
@@ -382,7 +382,7 @@ def null_vector(A):
     u, s, v = np.linalg.svd(A)
     return v[-1] / v[-1, -1]
 
-def reprojection_error(x, visibility, points2D, N_frames, K, weight_cutoff=15, debug=False, shape=None, title=''):
+def reprojection_error(x, visibility, points2D, N_frames, K, weight_cutoff=5, debug=False, shape=None, title=''):
     """
     Reprojection error, minimized in bundle adustment
     S = sum(d(P_i X_j, x_j)) (H&Z, p. 434)
@@ -430,15 +430,14 @@ def reprojection_error(x, visibility, points2D, N_frames, K, weight_cutoff=15, d
         
         diff = reprojected_points - image_points
 
-        # dist = np.sqrt(np.sum(diff**2, axis=0))
+        dist = np.sqrt(np.sum(diff**2, axis=0))
         
-        # # Tukey weights (https://github.com/dfridovi/SimpleSFM)
-        # weight_cutoff = np.sort(dist, axis=0)[int(np.ceil(0.98*dist.shape[0]))]#np.mean(dist) + 5 * np.std(dist) # potrebno? 
-        # weights = (1 - (dist / weight_cutoff) ** 2) ** 2
-        # weights[dist > weight_cutoff] = 0
+        # Tukey weights (https://github.com/dfridovi/SimpleSFM)
+        weights = (1 - (dist / weight_cutoff) ** 2) ** 2
+        weights[dist > weight_cutoff] = 0
 
-        # residuals.append(np.tile(weights, 2) * diff.ravel())
-        residuals.append(diff.ravel())
+        residuals.append(np.tile(weights, 2) * diff.ravel())
+        # residuals.append(diff.ravel())
 
     S = np.hstack(residuals)
     

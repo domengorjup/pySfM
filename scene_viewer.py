@@ -153,8 +153,8 @@ class MainWindow(QtWidgets.QWidget):
         return w
 
     def remove_outliers(self):
-        x, visibility, points2D, N_frames = self.scene.pack()
-        self.scene.unpack(x, remove_outliers = True, max_sd_dist=1)
+        x, visibility, points2D, N_frames, K = self.scene.pack()
+        self.scene.unpack(x, remove_outliers = True, max_sd_dist=2)
         self.load_frames()
 
     def save_scene(self):
