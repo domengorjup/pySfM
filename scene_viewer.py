@@ -53,6 +53,7 @@ class MainWindow(QtWidgets.QWidget):
             file = QtGui.QFileDialog.getOpenFileName(self, 'Select the point cloud .pkl file.', self.dir_path, filter=("pkl (*.pkl)"))[0]
             self.scene = pickle.load(open(file, 'rb'))
             self.load_frames()
+            self.pointCloud.opts['pos'] = 1
             self.removeOutliers.setEnabled(True)
         except Exception as e:
             if isinstance(e, FileNotFoundError):
