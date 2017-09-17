@@ -1,9 +1,10 @@
 .ipynb_checkpoints/
 __pycache__/
-datasets/
-images/
-!images/hisa
-kalibracija/
-!kalibracija/redmi
+datasets/*
+!datasets/dino/
+images/*
+!images/test_hisa/
+kalibracija/*
+!kalibracija/redmi/
 SimpleSFM-master/
 *.whl
