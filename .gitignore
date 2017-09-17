@@ -2,5 +2,8 @@
 __pycache__/
 datasets/
 images/
+!images/hisa
 kalibracija/
+!kalibracija/redmi
 SimpleSFM-master/
+*.whl

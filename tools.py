@@ -189,7 +189,7 @@ class Scene:
                         
     def bundle_adjustment(self, ftol=1e-6, max_nfev=5000, remove_outliers=True, max_sd_dist=2, weight_cutoff=5, X_only=False):
         """ Perform bundle adjustment to optimize cameras and points in the scene. """
-        camera_params_weight = 1e-9 # scale of camera extrinsic matrix parameters for optimization
+        camera_params_weight = 1e-12 # scale of camera extrinsic matrix parameters for optimization
 
         packed = self.pack(X_only=X_only)
         x0 = packed[0]
@@ -213,7 +213,7 @@ class Scene:
                                                  method='lm', 
                                                  ftol=ftol,
                                                  xtol=1e-9,
-                                                 gtol=1e-9,
+                                                 gtol=1e-13,
                                                  x_scale=x_scale,
                                                  max_nfev=max_nfev,
                                                  verbose=0,
@@ -433,7 +433,7 @@ def reprojection_error(x, visibility, points2D, N_frames, K, weight_cutoff=5, de
             ax[i].legend(loc=3)
             #plt.show()
         
-        diff = reprojected_points - image_points
+        # diff = reprojected_points - image_points
 
         # dist = np.sqrt(np.sum(diff**2, axis=0))
         
@@ -704,7 +704,7 @@ def get_camera_matrices_PnP(im1, im2, K, P1, scene, frame_i, distCoeffs, RANSAC=
         print('Too few ({:d}) matches for PnPRANSAC, calculating Fundamental matrix.'.format(len(matching_X)))
     else:
         if RANSAC:
-            print('PnPRANSAC ', len(matching_X))
+            #print('PnPRANSAC ', len(matching_X))
             retval, rvec, tvec, inliers = cv2.solvePnPRansac(np.array(matching_X), 
                                                     np.array(matching_p2), 
                                                     cameraMatrix=K,
